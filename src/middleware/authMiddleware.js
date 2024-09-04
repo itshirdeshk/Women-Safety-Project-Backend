@@ -6,37 +6,31 @@ const config = require('../config');
 
 exports.protect = asyncHandler(async (req, res, next) => {
     let token;
+    console.log(req.cookies);
+    
 
-    if (
-        req.headers.authorization &&
-        req.headers.authorization.startsWith('Bearer')
-    ) {
-        // Get token from header
-        token = req.headers.authorization.split(' ')[1];
+    // Get token from cookie
+    if (req.cookies.token) {
+        token = req.cookies.token;
+
+        try {
+            // Verify token
+            const decoded = jwt.verify(token, config.jwtSecret);
+
+            // Get user from the token
+            req.user = await User.findById(decoded.id).select('-password');
+
+            next();
+        } catch (error) {
+            console.error(error);
+            res.status(401);
+            throw new Error('Not authorized, token failed');
+        }
     }
 
-    // Make sure token exists
     if (!token) {
         res.status(401);
-        throw new Error('Not authorized, token missing');
-    }
-
-    try {
-        // Verify token
-        const decoded = jwt.verify(token, config.jwtSecret);
-
-        // Get user from the token
-        req.user = await User.findById(decoded.id).select('-password');
-
-        if (!req.user) {
-            res.status(401);
-            throw new Error('Not authorized, user not found');
-        }
-
-        next();
-    } catch (error) {
-        res.status(401);
-        throw new Error('Not authorized, token failed');
+        throw new Error('Not authorized, no token');
     }
 });
 

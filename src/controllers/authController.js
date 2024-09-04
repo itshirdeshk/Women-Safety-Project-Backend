@@ -3,8 +3,6 @@ const asyncHandler = require('express-async-handler');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const config = require('../config');
-const twilioService = require('../services/twilioService');
-const emailService = require('../services/emailService');
 
 // Generate JWT
 const generateToken = (id) => {
@@ -33,13 +31,22 @@ exports.register = asyncHandler(async (req, res) => {
     });
 
     if (user) {
+        const token = generateToken(user._id);
+
+        // Set token in HTTP-only cookie
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production', // Set to true in production
+            sameSite: 'Strict',
+            maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+        });
+
         res.status(201).json({
             success: true,
             data: {
                 _id: user._id,
                 name: user.name,
                 email: user.email,
-                token: generateToken(user._id),
             },
         });
     } else {
@@ -58,13 +65,22 @@ exports.login = asyncHandler(async (req, res) => {
     const user = await User.findOne({ email }).select('+password');
 
     if (user && (await user.matchPassword(password))) {
+        const token = generateToken(user._id);
+
+        // Set token in HTTP-only cookie
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production', // Set to true in production
+            sameSite: 'Strict',
+            maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+        });
+
         res.json({
             success: true,
             data: {
                 _id: user._id,
                 name: user.name,
                 email: user.email,
-                token: generateToken(user._id),
             },
         });
     } else {
